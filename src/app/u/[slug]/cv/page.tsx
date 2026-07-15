@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, use } from "react";
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
