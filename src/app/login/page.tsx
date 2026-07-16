@@ -124,14 +124,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Seed credentials hint */}
-          <div className="mt-8 p-3.5 bg-slate-950 rounded-xl border border-slate-800/80 text-[11px] text-slate-400 text-left">
-            <span className="font-semibold text-indigo-400 block mb-1">Accès Démo :</span>
-            Email : <code className="text-slate-200">admin@profolio.app</code><br />
-            Mot de passe : <code className="text-slate-200">password</code>
-          </div>
-        </div>
-
         <p className="text-center text-sm text-slate-400 mt-6">
           Pas encore de compte ?{" "}
           <Link href="/register" className="text-indigo-400 font-semibold hover:underline">
