@@ -4,7 +4,8 @@ import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
 import {
   Download, Share2, Moon, Sun, Play, Pause, X, ChevronLeft, ChevronRight,
-  Mail, Phone, Briefcase, Layers, FolderKanban, Quote, Sparkles, Check, FileDown
+  Mail, Phone, Briefcase, Layers, FolderKanban, Quote, Sparkles, Check, FileDown,
+  Loader2, Plus
 } from "lucide-react";
 
 // Templates
@@ -81,6 +82,25 @@ export default function PublicProfile({ params }: { params: Promise<{ slug: stri
   const [showRecModal, setShowRecModal] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Recommendation Modal
+  const [recForm, setRecForm] = useState({
+    recommender_name: "",
+    recommender_role: "",
+    recommender_company: "",
+    relationship: "Collègue de travail",
+    content: ""
+  });
+  const [recSubmitting, setRecSubmitting] = useState(false);
+  const [recSuccess, setRecSuccess] = useState(false);
+  const [recError, setRecError] = useState<string | null>(null);
+
+  // Contact Modal state
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactForm, setContactForm] = useState({ sender_name: '', sender_email: '', subject: '', message: '' });
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [contactSuccess, setContactSuccess] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
 
   // Story presentation player states
   const [showPlayer, setShowPlayer] = useState(false);
@@ -222,6 +242,67 @@ export default function PublicProfile({ params }: { params: Promise<{ slug: stri
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRecSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRecSubmitting(true);
+    setRecError(null);
+    setRecSuccess(false);
+
+    try {
+      const res = await fetch(`${API_BASE}/recommendations/${slug}/submit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify(recForm)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Une erreur est survenue.");
+      }
+      setRecSuccess(true);
+      setRecForm({
+        recommender_name: "",
+        recommender_role: "",
+        recommender_company: "",
+        relationship: "Collègue de travail",
+        content: ""
+      });
+      setTimeout(() => {
+        setShowRecModal(false);
+        setRecSuccess(false);
+      }, 3000);
+    } catch (err: any) {
+      setRecError(err.message);
+    } finally {
+      setRecSubmitting(false);
+    }
+  };
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactSubmitting(true);
+    setContactError(null);
+    setContactSuccess(false);
+    try {
+      const res = await fetch(`${API_BASE}/contact/${slug}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(contactForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Erreur');
+      setContactSuccess(true);
+      setContactForm({ sender_name: '', sender_email: '', subject: '', message: '' });
+      setTimeout(() => { setShowContactModal(false); setContactSuccess(false); }, 3000);
+    } catch (err: any) {
+      setContactError(err.message);
+    } finally {
+      setContactSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -401,6 +482,17 @@ export default function PublicProfile({ params }: { params: Promise<{ slug: stri
                 {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Share2 className="w-4 h-4" />}
                 {copied && <span className="text-xs text-emerald-500 font-semibold hidden sm:inline">Copié !</span>}
               </button>
+
+              {/* Contact Button */}
+              {profile.contact_email && (
+                <button
+                  onClick={() => setShowContactModal(true)}
+                  className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:border-indigo-300 text-xs font-semibold px-3.5 py-2 rounded-lg transition-all cursor-pointer"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Contacter</span>
+                </button>
+              )}
 
               {/* Presentation Play Button */}
               <button 
@@ -761,6 +853,153 @@ export default function PublicProfile({ params }: { params: Promise<{ slug: stri
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: SUBMIT RECOMMENDATION */}
+        {showRecModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in font-sans">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-left shadow-2xl relative">
+              <button 
+                onClick={() => setShowRecModal(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <h2 className="text-lg font-black text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                <Quote className="w-5 h-5 text-indigo-600" />
+                Recommander {profile.user?.name}
+              </h2>
+              
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+                Votre recommandation sera soumise au créateur du profil pour modération avant d'apparaître sur la page publique.
+              </p>
+
+              {recSuccess ? (
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse">
+                  <Check className="w-4 h-4" />
+                  Recommandation soumise avec succès !
+                </div>
+              ) : (
+                <form onSubmit={handleRecSubmit} className="space-y-4">
+                  {recError && (
+                    <div className="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-400 rounded-xl text-xs font-bold">
+                      {recError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Votre Nom *</label>
+                      <input required className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white" value={recForm.recommender_name} onChange={e => setRecForm(p => ({ ...p, recommender_name: e.target.value }))} placeholder="Ex: Thomas Mercier" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Votre Poste *</label>
+                      <input required className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white" value={recForm.recommender_role} onChange={e => setRecForm(p => ({ ...p, recommender_role: e.target.value }))} placeholder="Ex: Directeur Technique" />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Votre Entreprise *</label>
+                      <input required className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white" value={recForm.recommender_company} onChange={e => setRecForm(p => ({ ...p, recommender_company: e.target.value }))} placeholder="Ex: PixelCraft Agency" />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Relation de travail *</label>
+                      <select required className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-850 rounded-xl text-xs text-slate-600 dark:text-slate-300" value={recForm.relationship} onChange={e => setRecForm(p => ({ ...p, relationship: e.target.value }))}>
+                        {["Manager direct", "Collègue de travail", "Client", "Autre"].map(rel => <option key={rel} value={rel}>{rel}</option>)}
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Recommandation * (min. 10 car.)</label>
+                      <textarea required rows={4} className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs resize-none text-slate-900 dark:text-white" value={recForm.content} onChange={e => setRecForm(p => ({ ...p, content: e.target.value }))} placeholder="Ex: J'ai collaboré avec Sarah..." />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button type="submit" disabled={recSubmitting} className="flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl cursor-pointer disabled:opacity-50">
+                      {recSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      <span>Soumettre</span>
+                    </button>
+                    <button type="button" onClick={() => setShowRecModal(false)} className="text-xs font-semibold px-4 py-2.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+                      Annuler
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: CONTACT FORM */}
+        {showContactModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in font-sans">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-left shadow-2xl relative">
+              <button 
+                onClick={() => setShowContactModal(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <h2 className="text-lg font-black text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                <Mail className="w-5 h-5 text-indigo-600" />
+                Contacter {profile.user?.name}
+              </h2>
+              
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+                Envoyez un message direct au créateur de ce profil. Il le recevra par e-mail.
+              </p>
+
+              {contactSuccess ? (
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse">
+                  <Check className="w-4 h-4" />
+                  Message envoyé avec succès !
+                </div>
+              ) : (
+                <form onSubmit={handleContactSubmit} className="space-y-4">
+                  {contactError && (
+                    <div className="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-400 rounded-xl text-xs font-bold">
+                      {contactError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Votre Nom *</label>
+                      <input required className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white" value={contactForm.sender_name} onChange={e => setContactForm(p => ({ ...p, sender_name: e.target.value }))} placeholder="Ex: Jean Dupont" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Votre E-mail *</label>
+                      <input type="email" required className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white" value={contactForm.sender_email} onChange={e => setContactForm(p => ({ ...p, sender_email: e.target.value }))} placeholder="Ex: jean.dupont@email.com" />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Sujet</label>
+                      <input className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white" value={contactForm.subject} onChange={e => setContactForm(p => ({ ...p, subject: e.target.value }))} placeholder="Ex: Opportunité professionnelle / Collaboration" />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Message * (min. 10 car.)</label>
+                      <textarea required rows={5} className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs resize-none text-slate-900 dark:text-white" value={contactForm.message} onChange={e => setContactForm(p => ({ ...p, message: e.target.value }))} placeholder="Ex: Bonjour Sarah, je souhaiterais collaborer avec vous sur un projet..." />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button type="submit" disabled={contactSubmitting} className="flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl cursor-pointer disabled:opacity-50">
+                      {contactSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-white text-white" />}
+                      <span>Envoyer le message</span>
+                    </button>
+                    <button type="button" onClick={() => setShowContactModal(false)} className="text-xs font-semibold px-4 py-2.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+                      Annuler
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}
